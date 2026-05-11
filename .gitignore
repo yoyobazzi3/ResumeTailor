@@ -1,0 +1,66 @@
+# --- Environment & secrets (do not commit real values) ---
+.env
+.env.*
+!.env.example
+!.env.*.example
+.envrc
+.direnv
+*.pem
+*.key
+id_rsa
+id_rsa.*
+*.p12
+*.pfx
+secrets/
+credentials.json
+service-account*.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+
+# --- Node (monorepo / tooling at repo root) ---
+node_modules/
+
+# --- Tests & coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- OS & editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# --- Logs ---
+*.log
+logs/
+.deploy.secrets
