@@ -20,7 +20,7 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://joblens:joblens@db:5432/joblens
-      JWT_SECRET: your_secret_here
+      JWT_SECRET: ${JWT_SECRET}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     depends_on:
       db:
