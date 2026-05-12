@@ -55,12 +55,6 @@ export default function Login() {
       {/* Left branding panel */}
       <div className="hidden md:flex flex-col justify-center px-12 bg-[#0f172a]">
         <div className="mb-10">
-          <Link to="/" className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-6 transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </Link>
           <span className="text-2xl font-bold text-white tracking-tight">JobLens</span>
           <p className="mt-3 text-slate-400 text-sm leading-relaxed">
             Land your next job faster with AI-powered resume tailoring.
@@ -76,7 +70,14 @@ export default function Login() {
       {/* Right form panel */}
       <div className="flex flex-col justify-center px-6 py-12 sm:px-12 bg-white">
         <div className="max-w-sm w-full mx-auto">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Sign in to JobLens</h1>
+          <div className="flex items-center gap-3 mb-1">
+            <Link to="/" className="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Back to home">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            <h1 className="text-2xl font-semibold text-gray-900">Sign in to JobLens</h1>
+          </div>
           <p className="text-sm text-gray-500 mb-8">
             Don't have an account?{" "}
             <Link to="/register" className="text-indigo-600 hover:underline">Create one</Link>
