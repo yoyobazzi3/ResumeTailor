@@ -178,6 +178,7 @@ export default function Dashboard() {
     localStorage.getItem("checklist_dismissed") === "true"
   );
   const [hasResume, setHasResume] = useState(false);
+  const [extracting, setExtracting] = useState(false);
 
   async function fetchApps() {
     try {
@@ -206,6 +207,25 @@ export default function Dashboard() {
   function switchView(mode: "list" | "kanban") {
     setViewMode(mode);
     localStorage.setItem("dashboard_view", mode);
+  }
+
+  async function handleFetchJD() {
+    if (!form.job_url) return;
+    setExtracting(true);
+    try {
+      const { data } = await api.post("/api/applications/extract-jd", { url: form.job_url });
+      setForm((f) => ({
+        ...f,
+        job_description: data.job_description ?? f.job_description,
+        company: data.company && !f.company ? data.company : f.company,
+        role: data.role && !f.role ? data.role : f.role,
+      }));
+      toast.success("Job description extracted");
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail ?? "Couldn't fetch that URL");
+    } finally {
+      setExtracting(false);
+    }
   }
 
   async function handleAdd(e: { preventDefault(): void }) {
@@ -476,7 +496,6 @@ export default function Dashboard() {
               {[
                 { label: "Company *", key: "company", type: "text", required: true },
                 { label: "Role *", key: "role", type: "text", required: true },
-                { label: "Job URL", key: "job_url", type: "url", required: false },
                 { label: "Date Applied", key: "applied_at", type: "date", required: false },
               ].map(({ label, key, type, required }) => (
                 <div key={key}>
@@ -490,6 +509,35 @@ export default function Dashboard() {
                   />
                 </div>
               ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Job URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={form.job_url}
+                    onChange={(e) => setForm({ ...form, job_url: e.target.value })}
+                    placeholder="https://..."
+                    className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={!form.job_url || extracting}
+                    onClick={handleFetchJD}
+                    className="shrink-0 text-sm font-medium px-3 py-2 rounded-lg border border-indigo-300 text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  >
+                    {extracting ? (
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        Fetching…
+                      </span>
+                    ) : "Fetch JD"}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-400">Paste a Greenhouse, Lever, or company career page URL</p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select

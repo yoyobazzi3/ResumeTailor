@@ -327,14 +327,25 @@ export default function Onboarding() {
   if (!token) return <Navigate to="/login" replace />;
   if (onboarding_completed) return <Navigate to="/dashboard" replace />;
 
-  async function handleSkip() {
+  // Mark onboarding complete as soon as the user advances past step 1.
+  // This prevents the onboarding from repeating on future logins if the user
+  // closes the browser mid-flow before reaching the skip/submit button on step 3.
+  async function handleStep1Complete() {
     try {
       await api.patch("/api/auth/onboarding-complete");
       setOnboardingCompleted();
-      navigate("/dashboard");
     } catch {
-      navigate("/dashboard");
+      // Non-blocking — the flag will be set again when step 3 is completed or skipped.
     }
+    setStep(2);
+  }
+
+  async function handleSkip() {
+    setOnboardingCompleted();
+    navigate("/dashboard");
+    // Fire-and-forget — the local store is already updated above so the next
+    // login will see onboarding_completed=true even if this request fails.
+    api.patch("/api/auth/onboarding-complete").catch(() => {});
   }
 
   return (
@@ -348,7 +359,7 @@ export default function Onboarding() {
         <ProgressBar current={step} />
 
         {step === 1 && (
-          <Step1 firstName={first_name || "there"} onNext={() => setStep(2)} />
+          <Step1 firstName={first_name || "there"} onNext={handleStep1Complete} />
         )}
         {step === 2 && (
           <Step2 onNext={() => setStep(3)} />

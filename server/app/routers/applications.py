@@ -8,7 +8,8 @@ readable and the business logic independently testable.
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +25,7 @@ from app.schemas.application import (
 )
 from app.services import applications as svc
 from app.services import resume as resume_svc
+from app.services import scraper as scraper_svc
 
 router = APIRouter(prefix="/api/applications", tags=["applications"])
 
@@ -117,3 +119,23 @@ async def delete_application(
 ):
     """Delete an application and all its related records."""
     await svc.delete(db, current_user.id, application_id)
+
+
+class ExtractJDRequest(BaseModel):
+    url: str
+
+
+@router.post("/extract-jd")
+async def extract_jd(
+    payload: ExtractJDRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Fetch a public job posting URL and extract the job description, company, and role.
+
+    Returns: {job_description, company, role} — company and role may be null.
+    Raises 422 with a user-readable message on fetch or parse failures.
+    """
+    try:
+        return await scraper_svc.fetch_job_info(payload.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))

@@ -49,14 +49,41 @@ async def tailor_resume(bullets: list[str], job_description: str) -> dict:
             given the prompt constraints, but callers should handle it).
         anthropic.APIError: On network or API-level failures.
     """
-    prompt = f"""You are a senior technical recruiter. Rewrite the resume bullets below to better match the job description.
+    prompt = f"""You are an expert resume writer and ATS optimization specialist. Rewrite the resume bullets below to maximize match with the job description.
 
-Rules:
-- Preserve all numbers, percentages, and quantified achievements exactly
-- Mirror the language and keywords from the job description
-- Do not invent or exaggerate claims
-- Return exactly {len(bullets)} tailored bullets
+Core rules:
+- Preserve ALL numbers, percentages, and quantified achievements exactly as written — never round, estimate, or omit them
+- Mirror the exact language and keywords from the job description — ATS systems match tokens verbatim
+- Do not invent, fabricate, or exaggerate claims — only reframe existing experience using JD language
+- Return exactly {len(bullets)} tailored bullets, one for each input bullet
 - Respond with JSON only, no markdown, no explanation
+
+Tailoring strategy:
+- Front-load the most important JD keywords in the first 5–8 words of each bullet where natural
+- Use strong action verbs that appear in the JD when possible (e.g. if JD says "architected", prefer "Architected" over "Built")
+- For each required skill or technology, use the exact phrase from the JD verbatim in at least one bullet (e.g. if JD says "distributed systems", use "distributed systems" not "large-scale systems")
+- Do not pad bullets with generic soft-skill filler ("collaborated with cross-functional teams", "drove impact") unless directly mirrored from the JD
+- Be surgical — only add language that directly maps to a stated JD requirement
+
+Skill matching rules:
+- Job descriptions often list alternatives: "JavaScript or TypeScript", "React or Vue or Angular", "Python or Java"
+- If the candidate's bullets contain ANY ONE of the alternatives, that requirement is fully satisfied — do NOT add any of the alternatives to missing_keywords
+- When rewriting bullets, prefer to use the exact alternative from the JD that matches what the candidate already has
+- Only add a skill to missing_keywords if the candidate satisfies NONE of the alternatives for that requirement
+- Common equivalences: "JS" = "JavaScript", "TS" = "TypeScript", "Node" = "Node.js", "Postgres" = "PostgreSQL", "k8s" = "Kubernetes"
+
+Missing keywords rules:
+- Distinguish required skills (explicitly stated as required/must-have/essential) from preferred skills (preferred/nice-to-have/bonus/plus)
+- Return at most 8 missing keywords, prioritizing required gaps over preferred ones
+- Prefix each with [required] or [preferred] — e.g. "[required] Go", "[preferred] Kubernetes"
+- Do not list the same concept twice under different names
+
+Match Score Rubric (use this exact scale):
+- 85-100: Nearly all required skills present; bullets use JD's exact language and terminology; strong keyword density throughout
+- 70-84: Most required skills covered; good keyword mirroring with minor gaps in language or coverage
+- 50-69: Core skills present but several required keywords missing or language not well aligned
+- 30-49: Significant gaps in required skills; JD terminology not reflected in bullets
+- 0-29: Poor alignment; major required skills absent or role is a strong mismatch
 
 Job Description:
 {job_description}
@@ -64,19 +91,12 @@ Job Description:
 Resume Bullets:
 {json.dumps(bullets)}
 
-Skill matching rules (critical):
-- Job descriptions often list alternatives: "JavaScript or TypeScript", "React or Vue or Angular", "Python or Java"
-- If the candidate's bullets contain ANY ONE of the alternatives, that requirement is fully satisfied — do NOT add any of the alternatives to missing_keywords
-- When rewriting bullets, prefer to use the exact alternative from the JD that matches what the candidate already has
-- Only add a skill to missing_keywords if the candidate satisfies NONE of the alternatives for that requirement
-- Common equivalences to recognise: "JS" = "JavaScript", "TS" = "TypeScript", "Node" = "Node.js", "Postgres" = "PostgreSQL"
-
 Return this exact JSON shape:
 {{
   "tailored_bullets": [...],
   "missing_keywords": [...],
-  "match_score": <integer 0-100>,
-  "reasoning": "<one sentence>"
+  "match_score": <integer 0-100 using the rubric above>,
+  "reasoning": "<one sentence explaining the score, citing the most impactful gap or strength>"
 }}"""
 
     message = await client.messages.create(
@@ -127,6 +147,63 @@ Bullets: {json.dumps(bullets)}"""
     )
 
     return json.loads(message.content[0].text)["match_score"]
+
+
+async def extract_job_info_from_text(page_text: str, url: str) -> dict:
+    """Extract structured job info from raw page text scraped from a job posting URL.
+
+    Uses Claude to identify and pull out the job description, company name, and
+    role title from whatever text was on the page. This handles the wide variety
+    of layouts across Greenhouse, Lever, company career pages, etc.
+
+    Returns a dict with keys: job_description (str), company (str|None), role (str|None).
+
+    Raises:
+        ValueError: If Claude cannot find a meaningful job description in the text.
+    """
+    prompt = f"""You are parsing raw text scraped from a job posting page. Extract the job information and return it as JSON.
+
+Return ONLY a valid JSON object with these exact keys:
+{{
+  "job_description": "The complete job description — include all responsibilities, qualifications, requirements, and any other relevant details. Preserve formatting with newlines. Do not summarize — extract everything relevant to the role.",
+  "company": "The company name hiring for this role, or null if unclear",
+  "role": "The exact job title as written, or null if unclear"
+}}
+
+No markdown. No explanation. Just the JSON object.
+
+Source URL: {url}
+
+Page text:
+{page_text}"""
+
+    message = await client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    raw = message.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Could not parse job info from the page.") from exc
+
+    jd = result.get("job_description", "")
+    if not jd or len(jd) < 100:
+        raise ValueError(
+            "Couldn't find a job description on that page. "
+            "The page may require JavaScript to render. Try pasting the job description manually."
+        )
+
+    return {
+        "job_description": jd,
+        "company": result.get("company") or None,
+        "role": result.get("role") or None,
+    }
 
 
 async def parse_resume(resume_text: str) -> dict:

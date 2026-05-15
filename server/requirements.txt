@@ -14,3 +14,5 @@ email-validator==2.2.0
 pypdf==4.3.1
 # WeasyPrint 62.x + pydyf 0.11+ breaks PDF generation (transform/super). 63.1+ matches pydyf>=0.11.
 weasyprint==63.1
+httpx==0.27.2
+beautifulsoup4==4.12.3
